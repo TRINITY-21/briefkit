@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 
+import pathlib
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -73,6 +75,7 @@ app.include_router(news.router)
 app.include_router(briefing.router)
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
 async def root():
-    return RedirectResponse(url="/docs")
+    html_path = pathlib.Path(__file__).parent / "static" / "index.html"
+    return HTMLResponse(content=html_path.read_text())

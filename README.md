@@ -1,107 +1,129 @@
+<div align="center">
+
 # Briefkit
 
-REST API that serves weather, crypto, and news data with API key auth, rate limiting, and auto-generated Swagger docs.
+**Weather, crypto, and news in one API call.**
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Railway](https://img.shields.io/badge/Railway-Deployed-A855F7?style=flat-square&logo=railway&logoColor=white)
+
+REST API with API key auth, rate limiting, TTL caching, and auto-generated Swagger docs.
+
+[Live API](https://web-production-59874.up.railway.app) · [Swagger Docs](https://web-production-59874.up.railway.app/docs) · [Source Code](https://github.com/TRINITY-21/briefkit)
+
+</div>
+
+---
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/keys` | Generate a new API key |
-| `GET` | `/api/weather/{city}` | Weather data for a city |
+| `GET` | `/api/weather/{city}` | Weather data for any city |
 | `GET` | `/api/crypto/{coins}` | Crypto prices (comma-separated) |
 | `GET` | `/api/news?limit=5` | Top Hacker News stories |
 | `GET` | `/api/briefing` | Combined: weather + crypto + news |
 | `GET` | `/docs` | Interactive Swagger UI |
 
-## Auth
-
-All endpoints except `/api/keys` and `/docs` require an API key:
+## Quick Start
 
 ```bash
-# Generate a key
-curl -X POST http://localhost:8000/api/keys
+# 1. Get your API key
+curl -X POST https://web-production-59874.up.railway.app/api/keys
 
-# Use it
-curl -H "X-API-Key: bk_your_key" http://localhost:8000/api/weather/Istanbul
+# 2. Use it
+curl -H "X-API-Key: bk_your_key" \
+  https://web-production-59874.up.railway.app/api/briefing?city=Istanbul
 ```
 
-Rate limit: 100 requests/day per key.
-
-## Response Format
+## Response
 
 ```json
 {
   "status": "ok",
-  "data": { ... },
-  "timestamp": "2026-01-01T00:00:00Z"
+  "data": {
+    "weather": {
+      "city": "Istanbul",
+      "temp": 12.5,
+      "feels_like": 10.2,
+      "humidity": 65,
+      "description": "partly cloudy",
+      "wind_speed": 3.6
+    },
+    "crypto": [
+      { "symbol": "BTC", "price": 67321.0, "change_24h": -0.28, "market_cap": 1344758503096 }
+    ],
+    "news": [
+      { "title": "Show HN: ...", "url": "https://...", "score": 342, "comments": 89 }
+    ]
+  },
+  "timestamp": "2026-02-17T16:00:00Z"
 }
 ```
 
-## APIs
+## Auth & Rate Limiting
+
+- Pass your key via `X-API-Key` header
+- 100 requests/day per key
+- Keys prefixed with `bk_` for easy identification
+- `/api/keys` and `/docs` are public (no auth needed)
+
+## Data Sources
 
 | Source | Data |
 |--------|------|
-| [OpenWeatherMap](https://openweathermap.org/) | Weather: temp, humidity, wind, feels like |
-| [CoinGecko](https://www.coingecko.com/) | Crypto: prices, 24h change, market cap |
-| [Hacker News](https://news.ycombinator.com/) | News: top stories with scores and links |
+| [OpenWeatherMap](https://openweathermap.org/) | Temperature, humidity, wind, conditions |
+| [CoinGecko](https://www.coingecko.com/) | Prices, 24h change, market cap |
+| [Hacker News](https://news.ycombinator.com/) | Top stories with scores and links |
 
 ## Stack
 
-- **FastAPI** — auto-generated Swagger docs, Pydantic models
-- **httpx** — async HTTP client for upstream APIs
-- **SQLite / PostgreSQL** — API key storage
-- **slowapi** — per-key rate limiting
-- **In-memory TTL cache** — don't hammer upstream APIs
+| Layer | Tech |
+|-------|------|
+| Framework | FastAPI with auto Swagger docs |
+| HTTP Client | httpx (async) |
+| Database | PostgreSQL (Railway) / SQLite (local) |
+| Rate Limiting | slowapi (per-key) |
+| Caching | In-memory TTL (5min weather, 2min crypto) |
+| Models | Pydantic v2 (typed responses) |
+| Deploy | Railway with Procfile |
 
-## Setup
+## Local Development
 
 ```bash
 git clone https://github.com/TRINITY-21/briefkit.git
 cd briefkit
 pip install -r requirements.txt
-```
-
-Create `.env`:
-
-```
-OPENWEATHER_API_KEY=your_key_here
-DEFAULT_CITY=Istanbul
-CRYPTO_COINS=bitcoin,ethereum,solana
-DATABASE_URL=sqlite+aiosqlite:///./briefkit.db
-```
-
-Run:
-
-```bash
+cp .env.example .env  # add your OpenWeatherMap key
 uvicorn app.main:app --reload
 ```
-
-Visit `http://localhost:8000/docs` for interactive API docs.
 
 ## Architecture
 
 ```
 briefkit/
 ├── app/
-│   ├── main.py          # FastAPI app, CORS, rate limiter, error handlers
+│   ├── main.py          # App setup, CORS, rate limiter, error handlers
 │   ├── config.py         # pydantic-settings from .env
-│   ├── database.py       # Async DB connection + api_keys table
-│   ├── auth.py           # API key generation + verification dependency
-│   ├── cache.py          # TTL cache decorator (in-memory)
-│   ├── models.py         # Pydantic response models (auto Swagger schemas)
-│   ├── routes/           # Endpoint handlers
-│   └── services/         # Upstream API fetchers (weather, crypto, news)
-├── Procfile              # Railway deployment
+│   ├── database.py       # Async DB + api_keys table
+│   ├── auth.py           # Key generation + verification dependency
+│   ├── cache.py          # TTL cache decorator
+│   ├── models.py         # Pydantic response schemas
+│   ├── routes/           # weather, crypto, news, briefing, keys
+│   ├── services/         # Upstream API fetchers
+│   └── static/           # Custom landing page
+├── Procfile              # Railway: uvicorn start command
 └── requirements.txt
 ```
 
-**Key design decisions:**
-
-- Services and routes are separate — services fetch data, routes handle HTTP
-- Pydantic models define response shapes — Swagger docs auto-generated
-- TTL cache prevents hammering upstream APIs (5min weather/news, 2min crypto)
-- API keys prefixed with `bk_` for easy identification
-- `asyncio.gather` for parallel fetches in `/briefing`
+**Design decisions:**
+- Services and routes are separate — services have no HTTP framework imports
+- `/briefing` fetches all 3 sources in parallel via `asyncio.gather`
+- TTL cache avoids hammering upstream APIs on repeated requests
+- Pydantic models auto-generate Swagger JSON schemas
 
 ## License
 
