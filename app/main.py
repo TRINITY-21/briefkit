@@ -74,7 +74,6 @@ app.include_router(crypto.router)
 app.include_router(news.router)
 app.include_router(briefing.router)
 
-
 @app.get("/", include_in_schema=False, response_class=HTMLResponse)
 async def root():
     html_path = pathlib.Path(__file__).parent / "static" / "index.html"
